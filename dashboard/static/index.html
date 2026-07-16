@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aegis AWS CSPM Dashboard</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Custom Style Sheet -->
+    <link rel="stylesheet" href="/static/css/style.css?v=2.0.0">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="brand">
+                <i class="fa-solid fa-shield-halved brand-logo"></i>
+                <div class="brand-text">
+                    <h2>AEGIS CLOUD</h2>
+                    <span>Cloud Sentinel</span>
+                </div>
+            </div>
+            <nav class="nav-menu">
+                <button class="nav-item active" data-tab="dashboard">
+                    <i class="fa-solid fa-chart-pie"></i>
+                    <span>Dashboard</span>
+                </button>
+                <button class="nav-item" data-tab="compliance">
+                    <i class="fa-solid fa-clipboard-check"></i>
+                    <span>Compliance</span>
+                </button>
+                <button class="nav-item" data-tab="history">
+                    <i class="fa-solid fa-history"></i>
+                    <span>Scan History</span>
+                </button>
+                <button class="nav-item" data-tab="integrations">
+                    <i class="fa-solid fa-circle-nodes"></i>
+                    <span>Integrations</span>
+                </button>
+            </nav>
+            <div class="sidebar-footer">
+                <div class="status-indicator">
+                    <span class="pulse-dot green"></span>
+                    <span>Database: Online</span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Workspace -->
+        <main class="workspace">
+            <!-- Header bar -->
+            <header class="top-bar">
+                <div class="page-title">
+                    <h1 id="view-title">Dashboard Overview</h1>
+                    <p id="view-subtitle">AI-Powered Cloud Security Copilot for AWS</p>
+                </div>
+                <div class="header-actions">
+                    <!-- Export Report Dropdown -->
+                    <div class="dropdown-wrapper">
+                        <button class="btn btn-secondary" id="btn-export-dropdown">
+                            <i class="fa-solid fa-download"></i>
+                            <span>Export Report</span>
+                            <i class="fa-solid fa-chevron-down" style="font-size: 10px;"></i>
+                        </button>
+                        <div class="dropdown-content glass hide" id="export-dropdown-menu">
+                            <a href="#" data-audience="ciso" class="export-link"><i class="fa-solid fa-user-tie"></i> CISO Executive Report (PDF)</a>
+                            <a href="#" data-audience="developer" class="export-link"><i class="fa-solid fa-code"></i> Developer Remediation (PDF)</a>
+                            <a href="#" data-audience="engineer" class="export-link"><i class="fa-solid fa-server"></i> Cloud Engineer Report (PDF)</a>
+                            <a href="#" data-audience="compliance" class="export-link"><i class="fa-solid fa-clipboard-check"></i> Compliance Audit (PDF)</a>
+                        </div>
+                    </div>
+                    <button class="btn btn-primary" id="btn-open-scan-modal">
+                        <i class="fa-solid fa-play"></i>
+                        <span>New Scan</span>
+                    </button>
+                </div>
+            </header>
+
+            <!-- Scrollable Content Frame -->
+            <div class="content-frame">
+                <!-- TAB 1: DASHBOARD -->
+                <section class="tab-content active" id="tab-dashboard">
+                    <!-- Metrics Summary Ribbon -->
+                    <div class="metrics-grid">
+                        <div class="metric-card glass score-card">
+                            <div class="score-radial">
+                                <canvas id="scoreChart"></canvas>
+                                <div class="score-overlay">
+                                    <span id="stat-score">-</span>
+                                    <label>POSTURE</label>
+                                </div>
+                            </div>
+                            <div class="score-summary">
+                                <h3>Security Grade</h3>
+                                <span class="grade-badge" id="stat-grade">-</span>
+                            </div>
+                        </div>
+
+                        <div class="metric-card glass sev-card critical" data-severity="CRITICAL">
+                            <div class="card-header">
+                                <span>CRITICAL</span>
+                                <i class="fa-solid fa-triangle-exclamation"></i>
+                            </div>
+                            <div class="card-body">
+                                <h2 id="stat-critical">-</h2>
+                                <p>Immediate Fix Needed</p>
+                            </div>
+                        </div>
+
+                        <div class="metric-card glass sev-card high" data-severity="HIGH">
+                            <div class="card-header">
+                                <span>HIGH</span>
+                                <i class="fa-solid fa-circle-exclamation"></i>
+                            </div>
+                            <div class="card-body">
+                                <h2 id="stat-high">-</h2>
+                                <p>High Priority Risks</p>
+                            </div>
+                        </div>
+
+                        <div class="metric-card glass sev-card medium" data-severity="MEDIUM">
+                            <div class="card-header">
+                                <span>MEDIUM</span>
+                                <i class="fa-solid fa-circle-question"></i>
+                            </div>
+                            <div class="card-body">
+                                <h2 id="stat-medium">-</h2>
+                                <p>Medium Risk Warnings</p>
+                            </div>
+                        </div>
+
+                        <div class="metric-card glass sev-card low" data-severity="LOW">
+                            <div class="card-header">
+                                <span>LOW</span>
+                                <i class="fa-solid fa-circle-info"></i>
+                            </div>
+                            <div class="card-body">
+                                <h2 id="stat-low">-</h2>
+                                <p>Informational Notices</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Scan Delta Comparison Banner -->
+                    <div class="delta-banner glass hide" id="delta-banner">
+                        <div class="delta-main">
+                            <div class="delta-score-change" id="delta-score-section">
+                                <i class="fa-solid fa-arrow-trend-up delta-arrow" id="delta-arrow-icon"></i>
+                                <div class="delta-score-info">
+                                    <span class="delta-value" id="delta-value">+0</span>
+                                    <span class="delta-label">Score Change</span>
+                                </div>
+                            </div>
+                            <div class="delta-stats">
+                                <div class="delta-stat resolved">
+                                    <i class="fa-solid fa-circle-check"></i>
+                                    <span id="delta-resolved-count">0</span>
+                                    <label>Issues Resolved</label>
+                                </div>
+                                <div class="delta-stat introduced">
+                                    <i class="fa-solid fa-circle-xmark"></i>
+                                    <span id="delta-introduced-count">0</span>
+                                    <label>New Issues</label>
+                                </div>
+                                <div class="delta-stat prev-score">
+                                    <i class="fa-solid fa-clock-rotate-left"></i>
+                                    <span id="delta-prev-score">—</span>
+                                    <label>Previous Score</label>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="delta-trend-label" id="delta-trend-label">Compared to previous scan</div>
+                    </div>
+
+                    <!-- Per-Service Health Gauges -->
+                    <div class="service-health-row" id="service-health-row">
+                        <div class="service-gauge glass" data-service="IAM">
+                            <div class="gauge-header">
+                                <i class="fa-solid fa-user-shield"></i>
+                                <span>IAM</span>
+                            </div>
+                            <div class="gauge-bar-track">
+                                <div class="gauge-bar-fill" id="gauge-iam" style="width: 0%"></div>
+                            </div>
+                            <span class="gauge-percent" id="gauge-iam-pct">—</span>
+                        </div>
+                        <div class="service-gauge glass" data-service="S3">
+                            <div class="gauge-header">
+                                <i class="fa-solid fa-box-archive"></i>
+                                <span>S3</span>
+                            </div>
+                            <div class="gauge-bar-track">
+                                <div class="gauge-bar-fill" id="gauge-s3" style="width: 0%"></div>
+                            </div>
+                            <span class="gauge-percent" id="gauge-s3-pct">—</span>
+                        </div>
+                        <div class="service-gauge glass" data-service="EC2">
+                            <div class="gauge-header">
+                                <i class="fa-solid fa-server"></i>
+                                <span>EC2</span>
+                            </div>
+                            <div class="gauge-bar-track">
+                                <div class="gauge-bar-fill" id="gauge-ec2" style="width: 0%"></div>
+                            </div>
+                            <span class="gauge-percent" id="gauge-ec2-pct">—</span>
+                        </div>
+                        <div class="service-gauge glass" data-service="CloudTrail">
+                            <div class="gauge-header">
+                                <i class="fa-solid fa-scroll"></i>
+                                <span>CloudTrail</span>
+                            </div>
+                            <div class="gauge-bar-track">
+                                <div class="gauge-bar-fill" id="gauge-cloudtrail" style="width: 0%"></div>
+                            </div>
+                            <span class="gauge-percent" id="gauge-cloudtrail-pct">—</span>
+                        </div>
+                        <div class="service-gauge glass" data-service="Networking">
+                            <div class="gauge-header">
+                                <i class="fa-solid fa-network-wired"></i>
+                                <span>Networking</span>
+                            </div>
+                            <div class="gauge-bar-track">
+                                <div class="gauge-bar-fill" id="gauge-networking" style="width: 0%"></div>
+                            </div>
+                            <span class="gauge-percent" id="gauge-networking-pct">—</span>
+                        </div>
+                    </div>
+
+                    <!-- AI Security Prioritization Panel -->
+                    <div class="priority-panel glass hide" id="ai-prioritization-card">
+                        <div class="priority-header">
+                            <i class="fa-solid fa-brain priority-logo"></i>
+                            <div>
+                                <h3>AI Security Prioritization Digest</h3>
+                                <p>Curated risk-chain recommendations for immediate business posture improvement</p>
+                            </div>
+                        </div>
+                        <div class="priority-content" id="ai-priority-list">
+                            <!-- Populated dynamically -->
+                        </div>
+                    </div>
+
+                    <!-- Charts Grid -->
+                    <div class="charts-row">
+                        <div class="chart-container glass">
+                            <h3>Findings by AWS Service</h3>
+                            <div class="chart-canvas-wrapper" style="position: relative;">
+                                <div class="chart-placeholder-overlay" id="serviceChart-placeholder">
+                                    <i class="fa-solid fa-chart-simple"></i>
+                                    <p>No audit data. Run a scan to view metrics.</p>
+                                </div>
+                                <canvas id="serviceChart"></canvas>
+                            </div>
+                        </div>
+                        <div class="chart-container glass">
+                            <h3>Vulnerabilities by Severity</h3>
+                            <div class="chart-canvas-wrapper" style="position: relative;">
+                                <div class="chart-placeholder-overlay" id="severityChart-placeholder">
+                                    <i class="fa-solid fa-chart-pie"></i>
+                                    <p>No audit data. Run a scan to view metrics.</p>
+                                </div>
+                                <canvas id="severityChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Timeline & Attack Path Section -->
+                    <div class="timeline-attack-row">
+                        <div class="chart-container glass timeline-box">
+                            <h3>Security Posture Timeline</h3>
+                            <div class="chart-canvas-wrapper" style="position: relative;">
+                                <div class="chart-placeholder-overlay" id="trendChart-placeholder">
+                                    <i class="fa-solid fa-chart-line"></i>
+                                    <p>No audit data. Run a scan to view metrics.</p>
+                                </div>
+                                <canvas id="trendChart"></canvas>
+                            </div>
+                        </div>
+                        <div class="chart-container glass attack-path-box">
+                            <h3>Interactive Attack Path Graph</h3>
+                            <div class="graph-canvas" id="attack-path-graph-container">
+                                <!-- SVG gets injected here dynamically -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Resource Risk Heatmap -->
+                    <div class="resource-heatmap glass hide" id="resource-heatmap">
+                        <div class="section-header">
+                            <div class="title-with-count">
+                                <h3><i class="fa-solid fa-fire-flame-curved" style="color: var(--high); margin-right: 8px;"></i>Top At-Risk Resources</h3>
+                                <span class="count-badge" id="heatmap-resource-count">0</span>
+                            </div>
+                        </div>
+                        <div class="heatmap-list" id="heatmap-list" style="overflow-x: hidden;">
+                            <!-- Populated dynamically by JS -->
+                        </div>
+                    </div>
+
+                    <!-- Active Findings Board -->
+                    <div class="findings-section glass">
+                        <div class="section-header">
+                            <div class="title-with-count">
+                                <h3>Security Audit Logs</h3>
+                                <span class="count-badge" id="stat-total-findings">0</span>
+                            </div>
+                            <!-- Filter Controls -->
+                            <div class="filters-bar">
+                                <div class="search-box">
+                                    <i class="fa-solid fa-search"></i>
+                                    <input type="text" id="filter-search" placeholder="Search rules or resources...">
+                                </div>
+                                <select id="filter-service" class="select-styled">
+                                    <option value="ALL">All Services</option>
+                                    <option value="IAM">IAM</option>
+                                    <option value="S3">S3</option>
+                                    <option value="EC2">EC2</option>
+                                    <option value="CloudTrail">CloudTrail</option>
+                                    <option value="Networking">Networking</option>
+                                </select>
+                                <select id="filter-status" class="select-styled">
+                                    <option value="ALL">All Statuses</option>
+                                    <option value="FAIL">Failed Rules</option>
+                                    <option value="PASS">Passed Rules</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="findings-table-container">
+                            <div class="findings-table-header">
+                                <div class="col-service">Service</div>
+                                <div class="col-rule">Check Rule</div>
+                                <div class="col-severity">Severity</div>
+                                <div class="col-region">Region</div>
+                                <div class="col-status">Status</div>
+                                <div class="col-toggle"></div>
+                            </div>
+                            <div class="findings-list" id="findings-container">
+                                <!-- Populated dynamically by javascript -->
+                                <div class="empty-state">
+                                    <i class="fa-solid fa-shield-check"></i>
+                                    <p>No active scan loaded. Select a scan or run a new scan to view logs.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- TAB 2: SCAN HISTORY -->
+                <section class="tab-content" id="tab-history">
+                    <div class="history-container glass">
+                        <div class="section-header">
+                            <h3>Historical Scans</h3>
+                            <button class="btn btn-secondary btn-sm" id="btn-refresh-history">
+                                <i class="fa-solid fa-arrows-rotate"></i> Refresh
+                            </button>
+                        </div>
+                        <div class="history-list-wrapper">
+                            <div class="history-table-header">
+                                <div>Timestamp</div>
+                                <div>Scan Type</div>
+                                <div>Score</div>
+                                <div>Findings Summary</div>
+                                <div>Regions</div>
+                                <div class="align-right">Actions</div>
+                            </div>
+                            <div class="history-list" id="history-container">
+                                <!-- Populated dynamically by javascript -->
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- TAB 3: INTEGRATIONS -->
+                <section class="tab-content" id="tab-integrations">
+                    <div class="integrations-grid">
+                        <!-- Slack Settings Card -->
+                        <div class="integration-card glass">
+                            <div class="card-logo">
+                                <i class="fa-brands fa-slack slack-icon"></i>
+                                <h3>Slack Alert System</h3>
+                            </div>
+                            <p class="description">Broadcast real-time scan findings directly to your Security Operations channel.</p>
+                            <div class="form-group">
+                                <label>Webhook URL</label>
+                                <input type="text" class="input-styled" id="integration-slack-webhook" placeholder="https://hooks.slack.com/services/...">
+                            </div>
+                            <div class="form-row">
+                                <label class="switch-container">
+                                    <input type="checkbox" id="integration-slack-enabled">
+                                    <span class="slider"></span>
+                                    <span>Enable Channel Alerts</span>
+                                </label>
+                            </div>
+                            <div style="display: flex; gap: 8px;">
+                                <button class="btn btn-secondary btn-sm" id="btn-test-slack" type="button">
+                                    <i class="fa-solid fa-paper-plane"></i> Test Broadcast
+                                </button>
+                                <button class="btn btn-primary btn-sm" id="btn-save-slack" type="button">
+                                    <i class="fa-solid fa-floppy-disk"></i> Save
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Email Digests Card -->
+                        <div class="integration-card glass">
+                            <div class="card-logo">
+                                <i class="fa-solid fa-envelope email-icon"></i>
+                                <h3>Email Digests</h3>
+                            </div>
+                            <p class="description">Receive daily compliance status reports and critical alerts in your inbox.</p>
+                            <div class="form-group">
+                                <label>Recipient Email Addresses</label>
+                                <input type="text" class="input-styled" id="integration-email-recipient" placeholder="security-ops@mycompany.io">
+                            </div>
+                            <div class="form-row">
+                                <label class="switch-container">
+                                    <input type="checkbox" id="integration-email-enabled">
+                                    <span class="slider"></span>
+                                    <span>Send Weekly Digest Report</span>
+                                </label>
+                            </div>
+                            <button class="btn btn-primary btn-sm" id="btn-save-email" type="button">
+                                <i class="fa-solid fa-floppy-disk"></i> Save Preferences
+                            </button>
+                        </div>
+
+                        <!-- AWS Integrations -->
+                        <div class="integration-card glass">
+                            <div class="card-logo">
+                                <i class="fa-brands fa-aws aws-icon"></i>
+                                <h3>AWS Native Integrations</h3>
+                            </div>
+                            <p class="description">Publish security events directly to central AWS security hubs.</p>
+                            <div class="integration-toggles">
+                                <div class="toggle-row">
+                                    <span>AWS Security Hub Sync</span>
+                                    <label class="switch-container">
+                                        <input type="checkbox" id="aws-sechub-toggle">
+                                        <span class="slider"></span>
+                                    </label>
+                                </div>
+                                <div class="toggle-row">
+                                    <span>Amazon GuardDuty Monitoring</span>
+                                    <label class="switch-container">
+                                        <input type="checkbox" checked>
+                                        <span class="slider"></span>
+                                    </label>
+                                </div>
+                                <div class="toggle-row">
+                                    <span>Amazon Inspector Sync</span>
+                                    <label class="switch-container">
+                                        <input type="checkbox">
+                                        <span class="slider"></span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Auto-Remediation Config -->
+                        <div class="integration-card glass full-width">
+                            <div class="card-logo">
+                                <i class="fa-solid fa-shield-heart remediation-icon"></i>
+                                <h3>Automated Security Remediation</h3>
+                            </div>
+                            <p class="description">Select configuration rules to trigger automatic script remediations once a scan detects a violation.</p>
+                            <div class="remediation-rules">
+                                <div class="rule-toggle-row">
+                                    <div class="rule-info">
+                                        <strong>Auto-Encrypt S3 Buckets</strong>
+                                        <p>Enables default AES-256 bucket SSE encryption when a bucket is found unencrypted.</p>
+                                    </div>
+                                    <label class="switch-container">
+                                        <input type="checkbox" checked>
+                                        <span class="slider"></span>
+                                    </label>
+                                </div>
+                                <div class="rule-toggle-row">
+                                    <div class="rule-info">
+                                        <strong>Auto-restrict Default SG</strong>
+                                        <p>Immediately removes all open rules from default security groups upon detection.</p>
+                                    </div>
+                                    <label class="switch-container">
+                                        <input type="checkbox" checked>
+                                        <span class="slider"></span>
+                                    </label>
+                                </div>
+                                <div class="rule-toggle-row">
+                                    <div class="rule-info">
+                                        <strong>Auto-block S3 Public Access</strong>
+                                        <p>Restricts access on S3 buckets found with open policies or public permissions.</p>
+                                    </div>
+                                    <label class="switch-container">
+                                        <input type="checkbox">
+                                        <span class="slider"></span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- TAB 4: COMPLIANCE EXPLORER -->
+                <section class="tab-content" id="tab-compliance">
+                    <div class="compliance-container glass">
+                        <div class="section-header">
+                            <div>
+                                <h3>Compliance Explorer</h3>
+                                <p style="font-size: 12px; color: var(--color-text-muted);">Audit governance and industry standard security frameworks</p>
+                            </div>
+                            <div class="compliance-selectors">
+                                <button class="btn btn-secondary btn-sm active" data-framework="cis">CIS Benchmark v1.4.0</button>
+                                <button class="btn btn-secondary btn-sm" data-framework="soc2">SOC 2 Type II</button>
+                                <button class="btn btn-secondary btn-sm" data-framework="hipaa">HIPAA Security</button>
+                            </div>
+                        </div>
+                        <div class="compliance-summary-bar">
+                            <div class="comp-stat">
+                                <label>Framework Compliance</label>
+                                <h2 id="compliance-percentage">0%</h2>
+                            </div>
+                            <div class="comp-stat">
+                                <label>Failed Controls</label>
+                                <h2 id="compliance-failed-count" style="color: var(--critical);">0</h2>
+                            </div>
+                        </div>
+                        <div class="compliance-list" id="compliance-rules-list">
+                            <!-- Populated dynamically by javascript -->
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <!-- MODAL POPUP: RUN SCAN -->
+    <div class="modal" id="scan-modal">
+        <div class="modal-content glass">
+            <div class="modal-header">
+                <h2>Configure New Security Scan</h2>
+                <button class="btn-close" id="btn-close-modal"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body">
+                <form id="scan-form">
+                    <!-- Form Input Fields Wrapper -->
+                    <div id="scan-form-inputs">
+                        <!-- AWS Key Fields -->
+                        <div id="live-cred-section" class="live-cred-section">
+                            <div class="form-row-2">
+                                <div class="form-group">
+                                    <label>AWS Access Key ID</label>
+                                    <input type="text" id="aws-key-id" class="input-styled" placeholder="Leave empty for local env credentials">
+                                </div>
+                                <div class="form-group">
+                                    <label>AWS Secret Access Key</label>
+                                    <input type="password" id="aws-secret-key" class="input-styled" placeholder="Leave empty for local env credentials">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>AWS Session Token</label>
+                                <input type="text" id="aws-session-token" class="input-styled" placeholder="Leave empty if not using temporary credentials">
+                            </div>
+                        </div>
+
+                        <!-- Region Checklist -->
+                        <div class="form-group">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                                <label style="margin-bottom: 0;">Target AWS Regions</label>
+                                <div style="display: flex; gap: 8px;">
+                                    <button type="button" class="btn btn-secondary btn-sm" id="btn-regions-all" style="padding: 2px 6px; font-size: 10px;">All</button>
+                                    <button type="button" class="btn btn-secondary btn-sm" id="btn-regions-none" style="padding: 2px 6px; font-size: 10px;">None</button>
+                                </div>
+                            </div>
+                            <div class="checkbox-grid" id="regions-checkbox-grid">
+                                <!-- Populated dynamically by javascript -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Console logger inside scan -->
+                    <div class="console-box hide" id="scan-console" style="min-height: 280px; display: flex; flex-direction: column;">
+                        <div class="console-header">
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <span>Scan Engine Console</span>
+                                <div class="console-spinner" id="console-spinner"></div>
+                            </div>
+                            <span class="pulsing-record" id="console-status-badge"><span class="dot"></span> RUNNING</span>
+                        </div>
+                        <div class="console-log" id="console-log-lines" style="flex: 1; overflow-y: auto;">
+                            <!-- Populated in JS -->
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer" id="scan-modal-footer">
+                <button class="btn btn-secondary" id="btn-cancel-scan">Cancel</button>
+                <button class="btn btn-secondary hide" id="btn-configure-scan">Back to Configuration</button>
+                <button class="btn btn-primary" id="btn-submit-scan">
+                    <i class="fa-solid fa-play"></i> <span>Launch Scan</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- AI Security Copilot Chat Drawer -->
+    <div class="copilot-drawer" id="copilot-drawer">
+        <div class="drawer-header">
+            <div class="drawer-header-title">
+                <i class="fa-solid fa-robot drawer-logo"></i>
+                <div>
+                    <h3>Aegis Security Copilot</h3>
+                    <span id="copilot-current-check-title">Select a finding to analyze</span>
+                </div>
+            </div>
+            <button class="btn-close-drawer" id="btn-close-copilot"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="drawer-body">
+            <div class="chat-container">
+                <div class="chat-messages" id="copilot-chat-messages">
+                    <div class="chat-message system">
+                        <p>Hi, I am Aegis AI Copilot. Select any security finding and ask me:
+                        <br/>&bull; <em>"Why is this dangerous?"</em>
+                        <br/>&bull; <em>"Show me how to exploit it"</em>
+                        <br/>&bull; <em>"Provide fix scripts"</em>
+                        <br/>or ask custom questions below!</p>
+                    </div>
+                </div>
+                <div class="chat-input-area">
+                    <input type="text" id="copilot-chat-input" placeholder="Ask follow-up questions...">
+                    <button class="btn btn-primary" id="btn-copilot-send"><i class="fa-solid fa-paper-plane"></i></button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification Toast -->
+    <div class="toast hide" id="notification-toast">
+        <i class="fa-solid fa-circle-check toast-icon"></i>
+        <div class="toast-body">
+            <strong id="toast-title">Success</strong>
+            <span id="toast-msg">Scan finished successfully.</span>
+        </div>
+    </div>
+
+    <script src="/static/js/app.js?v=2.0.0"></script>
+</body>
+</html>
