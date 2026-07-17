@@ -10,17 +10,17 @@ Built with **Python**, **FastAPI**, **Boto3**, **SQLite**, **Docker**, and moder
 
 ## 📸 Dashboard Preview
 
-> Replace these placeholders with screenshots from your project.
+### Dashboard
+![Dashboard](docs/dashboard.png)
 
-| Dashboard            | Security Findings   |
-| -------------------- | ------------------- |
-| `docs/dashboard.png` | `docs/findings.png` |
+### Security Findings
+![Security Findings](docs/findings.png)
 
-| Attack Path Graph       | AI Security Copilot |
-| ----------------------- | ------------------- |
-| `docs/attack-graph.png` | `docs/copilot.png`  |
+### Attack Path Graph
+![Attack Path Graph](docs/attack-graph.png)
 
----
+### AI Security Copilot
+![AI Security Copilot](docs/copilot.png)
 
 # ✨ Features
 
