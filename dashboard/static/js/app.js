@@ -186,6 +186,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const copilotInput = document.getElementById("copilot-chat-input");
     const btnCopilotSend = document.getElementById("btn-copilot-send");
     let copilotActiveCheckId = null;
+    let copilotChatHistory = [];
 
     // Export Reports Menu Elements
     const btnExportDropdown = document.getElementById("btn-export-dropdown");
@@ -217,7 +218,7 @@ document.addEventListener("DOMContentLoaded", () => {
             
             if (tabId === "dashboard") {
                 viewTitle.innerText = "Dashboard Overview";
-                viewSubtitle.innerText = "AI-Powered Cloud Security Copilot for AWS";
+                viewSubtitle.innerText = "AI-Powered Cloud Security Gemini Assistant for AWS";
             } else if (tabId === "compliance") {
                 viewTitle.innerText = "Compliance Explorer";
                 viewSubtitle.innerText = "Evaluate posture against CIS AWS Foundations, SOC 2 and HIPAA security rules";
@@ -367,7 +368,6 @@ document.addEventListener("DOMContentLoaded", () => {
         await runConsoleLog();
 
         const payload = {
-            is_mock: false,
             regions: regions,
             aws_access_key_id: awsKeyId || null,
             aws_secret_access_key: awsSecretKey || null,
@@ -821,7 +821,7 @@ document.addEventListener("DOMContentLoaded", () => {
             const btnAsk = document.createElement("button");
             btnAsk.className = "btn btn-primary btn-sm";
             btnAsk.style.margin = "8px";
-            btnAsk.innerHTML = "<i class='fa-solid fa-robot'></i> Ask Copilot Why Score is Low";
+            btnAsk.innerHTML = "<i class='fa-solid fa-brain'></i> Ask Gemini Why Score is Low";
             btnAsk.onclick = () => {
                 const firstFail = currentFindings.find(f => f.status !== "PASS");
                 if (firstFail) triggerCopilotPanel(firstFail.check_id, "Why is my security score low?");
@@ -989,7 +989,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
                         <div class="details-actions">
                             <button class="btn btn-secondary btn-sm btn-ask-copilot" data-check-id="${f.check_id}">
-                                <i class="fa-solid fa-robot"></i> Ask Copilot
+                                <i class="fa-solid fa-brain"></i> Ask Gemini
                             </button>
                             ${remediationBtn}
                         </div>
@@ -1079,9 +1079,10 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     };
 
-    // --- Interactive AI Copilot Side Panel Chat (Step 1) ---
+    // --- Interactive AI Gemini Side Panel Chat (Step 1) ---
     const triggerCopilotPanel = (checkId, customInitialMsg = null) => {
         copilotActiveCheckId = checkId;
+        copilotChatHistory = []; // Reset history for new finding
         copilotDrawer.classList.add("active");
 
         const meta = SECURITY_METADATA_JS[checkId] || {};
@@ -1098,14 +1099,100 @@ document.addEventListener("DOMContentLoaded", () => {
         sendCopilotMessage(initialQuery);
     };
 
+    const parseMarkdownLocal = (text) => {
+        if (!text) return "";
+        let html = text;
+        
+        // 1. Escape HTML tags to prevent injections but preserve code content
+        html = html
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;");
+            
+        // 2. Temporarily extract code blocks ``` ... ```
+        const codeBlocks = [];
+        html = html.replace(/```(\w*)\n([\s\S]*?)```/g, (match, lang, code) => {
+            const placeholder = `__CODE_BLOCK_PLACEHOLDER_${codeBlocks.length}__`;
+            codeBlocks.push(`<pre><code class="language-${lang}">${code.trim()}</code></pre>`);
+            return placeholder;
+        });
+        
+        // 3. Inline code blocks `code`
+        html = html.replace(/`([^`]+)`/g, '<code class="inline-code">$1</code>');
+        
+        // 4. Heading blocks e.g. ### Header
+        html = html.replace(/^(#{1,6})\s+(.+)$/gm, (match, hashes, content) => {
+            const level = hashes.length;
+            return `<h${level}>${content}</h${level}>`;
+        });
+        
+        // 5. Bold text **bold**
+        html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+        
+        // 6. Unordered Lists (starts with * or -)
+        let lines = html.split("\n");
+        let inList = false;
+        for (let i = 0; i < lines.length; i++) {
+            let line = lines[i].trim();
+            if (/^[\*\-]\s+(.+)$/.test(line)) {
+                let content = line.replace(/^[\*\-]\s+/, "");
+                if (!inList) {
+                    lines[i] = "<ul><li>" + content + "</li>";
+                    inList = true;
+                } else {
+                    lines[i] = "<li>" + content + "</li>";
+                }
+            } else {
+                if (inList) {
+                    lines[i - 1] += "</ul>";
+                    inList = false;
+                }
+            }
+        }
+        if (inList) {
+            lines[lines.length - 1] += "</ul>";
+        }
+        html = lines.join("\n");
+        
+        // 7. Paragraph blocks & line breaks
+        const blocks = html.split(/\n\n+/);
+        for (let b = 0; b < blocks.length; b++) {
+            let block = blocks[b].trim();
+            if (!block) continue;
+            if (!/^(<ul|<ol|<pre|<h\d)/i.test(block)) {
+                block = "<p>" + block.replace(/\n/g, "<br>") + "</p>";
+            }
+            blocks[b] = block;
+        }
+        html = blocks.join("\n");
+        
+        // 8. Re-insert extracted code blocks
+        for (let i = 0; i < codeBlocks.length; i++) {
+            html = html.replace(`__CODE_BLOCK_PLACEHOLDER_${i}__`, codeBlocks[i]);
+        }
+        
+        return html;
+    };
+
     const appendChatMessage = (role, text) => {
         const msgEl = document.createElement("div");
         msgEl.className = `chat-message ${role}`;
         
-        // Markdown backtick code translation
         let formatted = text;
-        if (text.includes("```")) {
-            formatted = text.replace(/```(hcl|bash|json|yaml)?([\s\S]*?)```/g, '<pre><code>$2</code></pre>');
+        if (typeof marked !== "undefined" && typeof marked.parse === "function") {
+            try {
+                marked.setOptions({
+                    breaks: true,
+                    gfm: true
+                });
+                formatted = marked.parse(text);
+            } catch (err) {
+                console.error("Error parsing markdown with marked.js:", err);
+                formatted = parseMarkdownLocal(text);
+            }
+        } else {
+            // Safe fallback to our local offline-ready markdown engine
+            formatted = parseMarkdownLocal(text);
         }
         msgEl.innerHTML = formatted;
         
@@ -1121,18 +1208,21 @@ document.addEventListener("DOMContentLoaded", () => {
         const payload = {
             check_id: copilotActiveCheckId,
             new_message: queryText,
-            message_history: []
+            message_history: [...copilotChatHistory]
         };
+
+        // Append to history
+        copilotChatHistory.push({ role: "user", content: queryText });
 
         // Loading indicator
         const loadingEl = document.createElement("div");
         loadingEl.className = "chat-message assistant loading";
-        loadingEl.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i> Aegis Copilot thinking...`;
+        loadingEl.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i> Aegis Gemini thinking...`;
         copilotMessages.appendChild(loadingEl);
         copilotMessages.scrollTop = copilotMessages.scrollHeight;
 
         try {
-            const resp = await fetch("/api/copilot/chat", {
+            const resp = await fetch("/api/gemini/chat", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload)
@@ -1144,9 +1234,12 @@ document.addEventListener("DOMContentLoaded", () => {
             
             const result = await resp.json();
             appendChatMessage("assistant", result.response);
+            
+            // Append assistant response to history
+            copilotChatHistory.push({ role: "assistant", content: result.response });
         } catch (e) {
             loadingEl.remove();
-            appendChatMessage("assistant", "Sorry, I encountered a communication error with the Aegis AI engine. Please verify the backend status.");
+            appendChatMessage("assistant", "Sorry, I encountered a communication error with the Aegis Gemini engine. Please verify the backend status.");
         }
     };
 

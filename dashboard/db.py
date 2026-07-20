@@ -35,7 +35,6 @@ def init_db():
         high_count INTEGER NOT NULL,
         medium_count INTEGER NOT NULL,
         low_count INTEGER NOT NULL,
-        is_mock INTEGER NOT NULL,
         regions TEXT NOT NULL
     );
     """)
@@ -74,7 +73,6 @@ def save_scan(
     timestamp: str,
     score: int,
     findings: List[Dict[str, Any]],
-    is_mock: bool,
     regions: List[str]
 ) -> None:
     """Save a scan run and all its findings inside a database transaction."""
@@ -92,8 +90,8 @@ def save_scan(
     try:
         # Insert scan summary
         cursor.execute("""
-        INSERT INTO scans (id, timestamp, score, total_checks, failed_checks, critical_count, high_count, medium_count, low_count, is_mock, regions)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+        INSERT INTO scans (id, timestamp, score, total_checks, failed_checks, critical_count, high_count, medium_count, low_count, regions)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?);
         """, (
             scan_id,
             timestamp,
@@ -104,7 +102,6 @@ def save_scan(
             high_count,
             medium_count,
             low_count,
-            1 if is_mock else 0,
             ",".join(regions)
         ))
         
@@ -156,7 +153,6 @@ def get_scan_history() -> List[Dict[str, Any]]:
             "high_count": r["high_count"],
             "medium_count": r["medium_count"],
             "low_count": r["low_count"],
-            "is_mock": bool(r["is_mock"]),
             "regions": r["regions"].split(",") if r["regions"] else []
         })
     return history
@@ -183,7 +179,6 @@ def get_scan_details(scan_id: str) -> Tuple[Dict[str, Any], List[Dict[str, Any]]
         "high_count": scan_row["high_count"],
         "medium_count": scan_row["medium_count"],
         "low_count": scan_row["low_count"],
-        "is_mock": bool(scan_row["is_mock"]),
         "regions": scan_row["regions"].split(",") if scan_row["regions"] else []
     }
     
@@ -257,7 +252,6 @@ def get_previous_scan(current_scan_id: str) -> Dict[str, Any]:
         "high_count": prev_row["high_count"],
         "medium_count": prev_row["medium_count"],
         "low_count": prev_row["low_count"],
-        "is_mock": bool(prev_row["is_mock"]),
         "regions": prev_row["regions"].split(",") if prev_row["regions"] else []
     }
     

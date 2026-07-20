@@ -13,7 +13,7 @@
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <!-- Custom Style Sheet -->
-    <link rel="stylesheet" href="/static/css/style.css?v=2.0.0">
+    <link rel="stylesheet" href="/static/css/style.css?v=2.1.0">
 </head>
 <body>
     <div class="app-container">
@@ -58,7 +58,7 @@
             <header class="top-bar">
                 <div class="page-title">
                     <h1 id="view-title">Dashboard Overview</h1>
-                    <p id="view-subtitle">AI-Powered Cloud Security Copilot for AWS</p>
+                    <p id="view-subtitle">AI-Powered Cloud Security Gemini Assistant for AWS</p>
                 </div>
                 <div class="header-actions">
                     <!-- Export Report Dropdown -->
@@ -608,13 +608,13 @@
         </div>
     </div>
 
-    <!-- AI Security Copilot Chat Drawer -->
+    <!-- AI Security Gemini Q&A Chat Drawer -->
     <div class="copilot-drawer" id="copilot-drawer">
         <div class="drawer-header">
             <div class="drawer-header-title">
-                <i class="fa-solid fa-robot drawer-logo"></i>
+                <i class="fa-solid fa-brain drawer-logo"></i>
                 <div>
-                    <h3>Aegis Security Copilot</h3>
+                    <h3>Aegis Gemini Q&A</h3>
                     <span id="copilot-current-check-title">Select a finding to analyze</span>
                 </div>
             </div>
@@ -624,7 +624,7 @@
             <div class="chat-container">
                 <div class="chat-messages" id="copilot-chat-messages">
                     <div class="chat-message system">
-                        <p>Hi, I am Aegis AI Copilot. Select any security finding and ask me:
+                        <p>Hi, I am the Aegis Gemini Q&A Assistant. Select any security finding and ask me:
                         <br/>&bull; <em>"Why is this dangerous?"</em>
                         <br/>&bull; <em>"Show me how to exploit it"</em>
                         <br/>&bull; <em>"Provide fix scripts"</em>
@@ -648,6 +648,7 @@
         </div>
     </div>
 
-    <script src="/static/js/app.js?v=2.0.0"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="/static/js/app.js?v=2.1.0"></script>
 </body>
 </html>

@@ -19,8 +19,8 @@ Built with **Python**, **FastAPI**, **Boto3**, **SQLite**, **Docker**, and moder
 ### Attack Path Graph
 ![Attack Path Graph](docs/attack-graph.png)
 
-### AI Security Copilot
-![AI Security Copilot](docs/copilot.png)
+### AI Gemini Q&A Assistant
+![AI Gemini Q&A Assistant](docs/copilot.png)
 
 # ✨ Features
 
@@ -47,8 +47,7 @@ graph TD
     API --> Engine[Scanner Engine]
 
     Engine --> AWS[Boto3 / AWS APIs]
-    Engine --> Mock[Mock Data Generator]
-
+    
     Engine --> API
 
     API --> DB[(Security Findings Database)]
@@ -141,9 +140,9 @@ Score = 100 − Σ(Failed Check Weight)
 
 ---
 
-# 🤖 AI Security Copilot
+# 🤖 AI Gemini Q&A Assistant
 
-The integrated AI Security Copilot helps analysts understand and remediate security findings by:
+The integrated AI Gemini Q&A Assistant helps analysts understand and remediate security findings by:
 
 * Explaining detected vulnerabilities
 * Prioritizing security risks

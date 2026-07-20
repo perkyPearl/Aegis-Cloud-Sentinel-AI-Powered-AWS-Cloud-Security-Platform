@@ -294,7 +294,7 @@ class ReportGenerator:
                 <div class="meta-info" style="margin-top: 10px;">
                     Scan ID: <strong>{self.summary['id']}</strong> &bull; 
                     Date: <strong>{self.summary['timestamp']}</strong> &bull; 
-                    Type: <strong>{'Mock Scan' if self.summary['is_mock'] else 'Live AWS Scan'}</strong>
+                    Type: <strong>Live AWS Scan</strong>
                 </div>
                 <div class="meta-info">
                     Regions scanned: {", ".join(self.summary['regions'])}
@@ -348,7 +348,7 @@ class ReportGenerator:
         </table>
         
         <div style="margin-top: 40px; border-top: 1px solid #e2e8f0; padding-top: 16px; text-align: center; color: #94a3b8; font-size: 12px;">
-            Aegis Cloud Sentinel &bull; AI-Powered Cloud Security Copilot for AWS
+            Aegis Cloud Sentinel &bull; AI-Powered Cloud Security Gemini Assistant for AWS
         </div>
     </div>
 </body>
@@ -434,11 +434,10 @@ class ReportGenerator:
             
         story.append(Paragraph(report_title, title_style))
         
-        scan_type_str = "MOCK SCAN RUN" if self.summary["is_mock"] else "LIVE AWS SCAN RUN"
         meta_text = (
             f"<b>Scan Run ID:</b> {self.summary['id']}<br/>"
             f"<b>Date:</b> {self.summary['timestamp']}<br/>"
-            f"<b>Scan Type:</b> {scan_type_str} | <b>Regions Scanned:</b> {', '.join(self.summary['regions'])}"
+            f"<b>Scan Type:</b> LIVE AWS SCAN RUN | <b>Regions Scanned:</b> {', '.join(self.summary['regions'])}"
         )
         story.append(Paragraph(meta_text, subtitle_style))
         

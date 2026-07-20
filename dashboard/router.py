@@ -3,12 +3,12 @@ import uuid
 import datetime
 import logging
 from typing import List, Optional
+import httpx
 from fastapi import APIRouter, HTTPException, BackgroundTasks
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 import boto3
 
-from scanner.mock_data import generate_mock_findings
 from scanner.iam import IAMScanner
 from scanner.s3 import S3Scanner
 from scanner.ec2 import EC2Scanner
@@ -25,10 +25,12 @@ router = APIRouter(prefix="/api")
 
 from scanner.security_metadata import SECURITY_METADATA
 
-class CopilotRequest(BaseModel):
+class GeminiRequest(BaseModel):
     check_id: str
     message_history: List[dict] = []
     new_message: str
+
+CopilotRequest = GeminiRequest
 
 
 class SettingsUpdateRequest(BaseModel):
@@ -97,66 +99,125 @@ def test_slack_webhook():
         raise HTTPException(status_code=500, detail="Failed to dispatch Slack alert. Please verify your Webhook URL.")
     return {"status": "success", "message": "Test message sent successfully!"}
 
+@router.post("/gemini/chat")
 @router.post("/copilot/chat")
-async def copilot_chat(req: CopilotRequest):
-    """Processes interactive chatbot questions regarding findings using the local knowledge base."""
+async def gemini_chat(req: GeminiRequest):
+    """Processes interactive chatbot questions regarding findings using Google Gemini API."""
     check_id = req.check_id
-    msg = req.new_message.lower().strip()
+    new_msg = req.new_message
     
     meta = SECURITY_METADATA.get(check_id)
     if not meta:
         return {"response": "I couldn't find detailed metadata for that check. How else can I assist you with cloud security?"}
         
-    title = meta["title"]
+    title = meta.get("title", check_id)
     
-    if "dangerous" in msg or "why" in msg or "matter" in msg or "risk" in msg:
-        response = (
-            f"### Why this is dangerous:\n{meta['why_dangerous']}\n\n"
-            f"### Estimated Impact:\n{meta['estimated_impact']}"
-        )
-    elif "exploit" in msg or "attack" in msg or "hack" in msg or "compromise" in msg:
-        response = (
-            f"### Exploitation Example:\n"
-            f"Here is how an attacker would typically exploit this misconfiguration:\n\n"
-            f"```bash\n{meta['exploitation_example']}\n```\n\n"
-            f"This demonstrates why securing this resource is critical."
-        )
-    elif "remediate" in msg or "fix" in msg or "correct" in msg or "patch" in msg or "terraform" in msg or "cli" in msg or "cfn" in msg or "console" in msg:
-        response = (
-            f"### Recommended Fix Options for **{title}**:\n\n"
-            f"You can remediate this using several methods:\n\n"
-            f"**1. Terraform:**\n```hcl\n{meta['fix_terraform']}\n```\n\n"
-            f"**2. AWS CLI:**\n```bash\n{meta['fix_cli']}\n```\n\n"
-            f"**3. AWS Console:**\n{meta['fix_console']}\n\n"
-            f"Choose the method that fits your environment workflow."
-        )
-    elif "compliance" in msg or "cis" in msg or "mitre" in msg or "framework" in msg:
-        response = (
-            f"### GRC Compliance & Framework Mappings:\n\n"
-            f"- **MITRE ATT&CK**: `{meta['mitre_attack']}`\n"
-            f"- **CIS AWS Foundations Benchmark**: `{meta['cis_benchmark']}`\n\n"
-            f"This failed check directly impacts compliance with key frameworks like SOC 2, HIPAA, and PCI-DSS."
-        )
-    elif "incident" in msg or "real world" in msg or "breach" in msg or "example" in msg:
-        response = (
-            f"### Real-World Incident Reference:\n"
-            f"{meta['real_world_incident']}\n\n"
-            f"For further reading, refer to AWS documentation: {meta['aws_docs']}"
-        )
-    else:
-        response = (
-            f"As your security copilot, let me explain **{title}**. "
-            f"This issue relates to {title}. "
-            f"It poses a {meta['estimated_impact']}. "
-            f"To secure this, you should perform the recommended remediation: \"{meta['fix_console']}\" "
-            f"Would you like to see the Terraform code or a CLI command to patch this immediately?"
-        )
+    # 1. Retrieve Gemini Configuration
+    api_key = os.environ.get("GEMINI_API_KEY")
+    model = os.environ.get("GEMINI_API_MODEL", "gemini-1.5-flash")
+    
+    if not api_key:
+        logger.error("GEMINI_API_KEY environment variable is not set.")
+        return {
+            "response": (
+                "⚠️ **Gemini API Key is not configured.**\n\n"
+                "Please configure `GEMINI_API_KEY` in your `.env` file to enable the live security Q&A assistant."
+            )
+        }
         
-    return {"response": response}
+    # 2. Build system instruction with complete security context
+    system_instruction = (
+        "You are Aegis Gemini Q&A, an expert AI Cloud Security Assistant for AWS.\n"
+        "Your goal is to help security analysts understand, analyze, and remediate the AWS security finding described below.\n"
+        "Keep your answers concise, highly technical, and actionable. Use markdown formatting to render code blocks, lists, and bold text.\n\n"
+        f"Security Finding Context:\n"
+        f"- Check ID: {check_id}\n"
+        f"- Title: {title}\n"
+        f"- Severity / Impact: {meta.get('estimated_impact', 'Unknown')}\n"
+        f"- Why it is dangerous: {meta.get('why_dangerous', 'N/A')}\n"
+        f"- MITRE ATT&CK Mapping: {meta.get('mitre_attack', 'N/A')}\n"
+        f"- CIS AWS Foundations Benchmark: {meta.get('cis_benchmark', 'N/A')}\n"
+        f"- Real-World Incident Reference: {meta.get('real_world_incident', 'N/A')}\n"
+        f"- Exploitation Example: {meta.get('exploitation_example', 'N/A')}\n"
+        f"- Remediation via Terraform:\n```hcl\n{meta.get('fix_terraform', 'N/A')}\n```\n"
+        f"- Remediation via AWS CLI:\n```bash\n{meta.get('fix_cli', 'N/A')}\n```\n"
+        f"- Remediation via CloudFormation:\n```yaml\n{meta.get('fix_cfn', 'N/A')}\n```\n"
+        f"- Remediation via AWS Console: {meta.get('fix_console', 'N/A')}\n"
+    )
+    
+    # 3. Format message history for Gemini API
+    contents = []
+    for msg in req.message_history:
+        role = "user" if msg.get("role") == "user" else "model"
+        content_text = msg.get("content", "")
+        if content_text:
+            contents.append({
+                "role": role,
+                "parts": [{"text": content_text}]
+            })
+            
+    # Append the new message
+    contents.append({
+        "role": "user",
+        "parts": [{"text": new_msg}]
+    })
+    
+    # 4. Invoke Gemini API
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
+    payload = {
+        "contents": contents,
+        "systemInstruction": {
+            "parts": [{"text": system_instruction}]
+        }
+    }
+    
+    async def fetch_gemini(client, api_url, payload_data):
+        response = await client.post(api_url, json=payload_data, timeout=30.0)
+        return response
+        
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await fetch_gemini(client, url, payload)
+            
+            # Handle 404 (e.g. model not found, try fallback model)
+            if resp.status_code == 404 and model != "gemini-1.5-flash":
+                logger.warning(f"Gemini model '{model}' not found. Retrying with fallback model 'gemini-1.5-flash'.")
+                fallback_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
+                resp = await fetch_gemini(client, fallback_url, payload)
+                
+            if resp.status_code != 200:
+                logger.error(f"Gemini API returned status {resp.status_code}: {resp.text}")
+                return {
+                    "response": (
+                        f"⚠️ **Gemini API Error (HTTP {resp.status_code})**\n\n"
+                        "Failed to query Gemini API. Please verify your internet connection, API key, and model configuration."
+                    )
+                }
+                
+            res_data = resp.json()
+            candidates = res_data.get("candidates", [])
+            if not candidates:
+                return {"response": "I'm sorry, I couldn't generate a response. No candidates returned."}
+                
+            parts = candidates[0].get("content", {}).get("parts", [])
+            if not parts or "text" not in parts[0]:
+                return {"response": "I'm sorry, I couldn't generate a response. Empty response body."}
+                
+            return {"response": parts[0]["text"]}
+            
+    except httpx.ConnectError as e:
+        logger.error(f"Network error connecting to Gemini API: {e}")
+        return {
+            "response": "⚠️ **Network Error**\n\nUnable to reach Gemini API. Please check your network connection and API endpoint availability."
+        }
+    except Exception as e:
+        logger.error(f"Unexpected error calling Gemini API: {e}")
+        return {
+            "response": f"⚠️ **Unexpected Error**\n\nAn unexpected error occurred while communicating with Gemini API:\n```\n{str(e)}\n```"
+        }
 
 # Pydantic schema for scan request
 class ScanRequest(BaseModel):
-    is_mock: bool = True
     regions: Optional[List[str]] = None
     aws_access_key_id: Optional[str] = None
     aws_secret_access_key: Optional[str] = None
@@ -211,58 +272,55 @@ def trigger_scan(req: ScanRequest):
     
     findings = []
     
-    if req.is_mock:
-        findings = generate_mock_findings()
-    else:
-        # Live boto3 scan
-        regions = req.regions or get_all_aws_regions()
-        region_name = regions[0] if regions else "us-east-1"
+    # Live boto3 scan
+    regions = req.regions or get_all_aws_regions()
+    region_name = regions[0] if regions else "us-east-1"
 
-        try:
-            # Create standard session
-            if req.aws_access_key_id and req.aws_secret_access_key:
-                session = boto3.Session(
-                    aws_access_key_id=req.aws_access_key_id,
-                    aws_secret_access_key=req.aws_secret_access_key,
-                    aws_session_token=req.aws_session_token,
-                    region_name=region_name
-                )
-            else:
-                # Default credential provider chain
-                session = boto3.Session(region_name=region_name)
-
-            # Verify credentials active
-            sts = session.client("sts")
-            sts.get_caller_identity()
-
-        except Exception as e:
-            logger.error(f"AWS authentication failed: {e}")
-            raise HTTPException(
-                status_code=401,
-                detail=f"AWS credential authentication failed: {str(e)}. Please check your credentials or run in Mock Mode."
+    try:
+        # Create standard session
+        if req.aws_access_key_id and req.aws_secret_access_key:
+            session = boto3.Session(
+                aws_access_key_id=req.aws_access_key_id,
+                aws_secret_access_key=req.aws_secret_access_key,
+                aws_session_token=req.aws_session_token,
+                region_name=region_name
             )
+        else:
+            # Default credential provider chain
+            session = boto3.Session(region_name=region_name)
 
-        # Instantiate and execute scanners
-        scanners = [
-            IAMScanner(session, regions),
-            S3Scanner(session, regions),
-            EC2Scanner(session, regions),
-            CloudTrailScanner(session, regions),
-            NetworkingScanner(session, regions)
-        ]
-        
-        for s in scanners:
-            try:
-                findings.extend(s.run_checks())
-            except Exception as e:
-                logger.error(f"Error running scanner {s.__class__.__name__}: {e}")
+        # Verify credentials active
+        sts = session.client("sts")
+        sts.get_caller_identity()
+
+    except Exception as e:
+        logger.error(f"AWS authentication failed: {e}")
+        raise HTTPException(
+            status_code=401,
+            detail=f"AWS credential authentication failed: {str(e)}."
+        )
+
+    # Instantiate and execute scanners
+    scanners = [
+        IAMScanner(session, regions),
+        S3Scanner(session, regions),
+        EC2Scanner(session, regions),
+        CloudTrailScanner(session, regions),
+        NetworkingScanner(session, regions)
+    ]
+    
+    for s in scanners:
+        try:
+            findings.extend(s.run_checks())
+        except Exception as e:
+            logger.error(f"Error running scanner {s.__class__.__name__}: {e}")
 
     # Compute score
     score = compute_security_score(findings)
     
     # Save results to DB
     scan_regions = req.regions if req.regions else ["us-east-1", "us-west-2"]
-    save_scan(scan_id, timestamp, score, findings, req.is_mock, scan_regions)
+    save_scan(scan_id, timestamp, score, findings, scan_regions)
     
     # Retrieve scan summary for report generation
     scan_summary, full_findings = get_scan_details(scan_id)
@@ -471,8 +529,6 @@ def download_report(scan_id: str, fmt: str, audience: Optional[str] = None):
 @router.post("/remediate/{scan_id}/{check_id}")
 def remediate_finding(scan_id: str, check_id: str):
     """Simulate or execute remediation for a specific finding."""
-    # For demonstration/mock scans, we update the finding status in the SQLite DB
-    # and recalculate the scan score to show real-time changes in the dashboard.
     import sqlite3
     from dashboard.db import get_connection
     

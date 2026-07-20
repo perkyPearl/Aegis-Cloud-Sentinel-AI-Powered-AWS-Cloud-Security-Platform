@@ -1584,6 +1584,44 @@ button, input, select, textarea {
     color: #ff9e00;
 }
 
+.chat-message p {
+    margin-bottom: 8px;
+}
+
+.chat-message p:last-child {
+    margin-bottom: 0;
+}
+
+.chat-message h1,
+.chat-message h2,
+.chat-message h3,
+.chat-message h4 {
+    margin-top: 12px;
+    margin-bottom: 6px;
+    color: var(--color-primary-hover);
+    font-weight: 600;
+}
+
+.chat-message h1 { font-size: 1.15rem; }
+.chat-message h2 { font-size: 1.05rem; }
+.chat-message h3 { font-size: 0.95rem; }
+.chat-message h4 { font-size: 0.85rem; }
+
+.chat-message ul,
+.chat-message ol {
+    margin: 8px 0;
+    padding-left: 20px;
+}
+
+.chat-message li {
+    margin-bottom: 4px;
+}
+
+.chat-message a {
+    color: var(--color-primary-hover);
+    text-decoration: underline;
+}
+
 .chat-input-area {
     padding: 16px 24px;
     border-top: 1px solid var(--color-border);
