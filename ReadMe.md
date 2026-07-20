@@ -226,7 +226,7 @@ Each report includes:
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/<your-username>/aegis-cloud-sentinel.git
+git clone https://github.com/perkyPearl/aegis-cloud-sentinel.git
 cd aegis-cloud-sentinel
 ```
 
