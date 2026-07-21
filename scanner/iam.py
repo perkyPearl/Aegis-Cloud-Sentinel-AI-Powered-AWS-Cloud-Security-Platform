@@ -182,8 +182,10 @@ class IAMScanner(BaseScanner):
         try:
             policies = client.list_policies(Scope="Local", OnlyAttached=False)
             for policy in policies.get("Policies", []):
-                policy_arn = policy["PolicyArn"]
-                version_id = policy["DefaultVersionId"]
+                policy_arn = policy.get("PolicyArn")
+                version_id = policy.get("DefaultVersionId")
+                if not policy_arn or not version_id:
+                    continue
                 
                 try:
                     policy_ver = client.get_policy_version(PolicyArn=policy_arn, VersionId=version_id)

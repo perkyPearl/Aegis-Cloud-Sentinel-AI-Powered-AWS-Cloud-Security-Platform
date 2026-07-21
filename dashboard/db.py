@@ -91,7 +91,7 @@ def save_scan(
         # Insert scan summary
         cursor.execute("""
         INSERT INTO scans (id, timestamp, score, total_checks, failed_checks, critical_count, high_count, medium_count, low_count, regions)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?);
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
         """, (
             scan_id,
             timestamp,
